@@ -1,0 +1,72 @@
+name: Extract ZIP and save folder
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_path:
+        description: "Path to the ZIP file in the repo"
+        required: true
+        default: "archive.zip"
+      target_folder:
+        description: "Folder name to create with extracted contents"
+        required: true
+        default: "extracted"
+
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.zip"
+
+jobs:
+  extract-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve ZIP file and target folder
+        id: config
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ZIP_PATH="${{ github.event.inputs.zip_path }}"
+            TARGET_FOLDER="${{ github.event.inputs.target_folder }}"
+          else
+            ZIP_PATH="$(find . -type f -name '*.zip' | head -n 1)"
+            TARGET_FOLDER="extracted-${{ github.run_number }}"
+          fi
+
+          if [ -z "$ZIP_PATH" ] || [ ! -f "$ZIP_PATH" ]; then
+            echo "ZIP file not found: $ZIP_PATH"
+            exit 1
+          fi
+
+          echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+          echo "target_folder=$TARGET_FOLDER" >> "$GITHUB_OUTPUT"
+
+      - name: Extract ZIP
+        shell: bash
+        run: |
+          mkdir -p "${{ steps.config.outputs.target_folder }}"
+          unzip -q "${{ steps.config.outputs.zip_path }}" -d "${{ steps.config.outputs.target_folder }}"
+          echo "Extracted folder contents:"
+          find "${{ steps.config.outputs.target_folder }}" -maxdepth 2 -print
+
+      - name: Commit extracted folder
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "${{ steps.config.outputs.target_folder }}"
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Extract ZIP to ${{ steps.config.outputs.target_folder }}"
+            git push
+          fi
