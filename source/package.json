@@ -1,0 +1,13 @@
+{
+  "name": "mochi-telegram-serverless",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "npx tgcloud push",
+    "migrate": "npx tgcloud migrate",
+    "status": "npx tgcloud status"
+  },
+  "devDependencies": {
+    "@tgcloud/cli": "^0.2.0"
+  }
+}
